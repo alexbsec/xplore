@@ -7,6 +7,7 @@ def main()
     flags = {}
     positional_arg_list = %w[php asp aspx html config ui_config xml general simple js routes]
     flags[:gcode] = 200
+    flags[:delay] = 100
 
     OptionParser.new do |opts|
         opts.banner = "Usage: prog.rb [options] [php|asp|aspx|html|config|ui_config|xml|simple|js|routes] [flags] [-u url | -g grep status code | -s small wordlist | -o save-output]"
@@ -18,6 +19,9 @@ def main()
         end
         opts.on("-o SAVE-OUTPUT", '--output', "Set this flag with a name to save the results in a .txt file.") do |output|
             flags[:output] = output
+        end
+        opts.on("-d DELAY", '--delay DELAY', "Set the delay in miliseconds between requests. Default is 100.") do |delay|
+            flags[:delay] = delay
         end
         opts.on("-s", "--small", TrueClass, "Set the scan to use small wordlist. Default is false.")
     end.parse!(into: flags)
@@ -37,6 +41,7 @@ def main()
 
     url = flags[:url]
     output = flags[:output]
+    delay = flags[:delay].to_i
 
     if url.nil?
         puts "Missing url flag (-u)".red
@@ -56,7 +61,7 @@ def main()
         gcode = [200]
     end
 
-    xplore = Xplore.new(url, gcode, mode, "small", output)
+    xplore = Xplore.new(url, gcode, mode, "small", output, delay)
     puts %q{
         __    __            __                               
         /  |  /  |          /  |                              

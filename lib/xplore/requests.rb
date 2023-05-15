@@ -23,12 +23,19 @@ class Xplore
         }
     }
 
-    def initialize(url, gcode, type, size, output)
+
+    def miliseconds_to_seconds(t)
+        return t/1000
+    end
+
+
+    def initialize(url, gcode, type, size, output, delay)
         url = url.start_with?('https://') ? url.chomp('/') : "https://#{url.chomp('/')}"
         url += "/" unless url.end_with?("/")
         @url = url
         @gcode = gcode
         @output = output
+        @delay = miliseconds_to_seconds(delay)
 
 
         case type.downcase
@@ -91,35 +98,41 @@ class Xplore
     end
 
     def request
-        uri = URI.parse(WORDLISTS[@type][@size])
-        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
-            req = Net::HTTP::Get.new(uri.request_uri)
-            http.request(req) do |response|
-                response.body.each_line do |word|
-                    word.chomp!
-                    begin
-                        url = "#{@url}#{word}"
-                        status = get_status_code(url)
-                        if status && @gcode.include?(status)
-                            color = case status.to_s
-                                    when /^2\d{2}$/ then :green
-                                    when /^3\d{2}$/ then :yellow
-                                    when /^4\d{2}$/ then :red
-                                    when /^5\d{2}$/ then :orange
-                                    else :white
-                                    end
-                            puts "#{url}".ljust(120) + "[#{status}]".colorize(color)
-                            if !@output.nil?
-                                status_file_path = "#{@output}/#{@output}-#{status}.txt"
-                                save_output(status_file_path, url)
+        begin
+            uri = URI.parse(WORDLISTS[@type][@size])
+            Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
+                req = Net::HTTP::Get.new(uri.request_uri)
+                http.request(req) do |response|
+                    response.body.each_line do |word|
+                        word.chomp!
+                        begin
+                            sleep(@delay)
+                            url = "#{@url}#{word}"
+                            status = get_status_code(url)
+                            if status && @gcode.include?(status)
+                                color = case status.to_s
+                                        when /^2\d{2}$/ then :green
+                                        when /^3\d{2}$/ then :yellow
+                                        when /^4\d{2}$/ then :red
+                                        when /^5\d{2}$/ then :orange
+                                        else :white
+                                        end
+                                puts "#{url}".ljust(120) + "[#{status}]".colorize(color)
+                                if !@output.nil?
+                                    status_file_path = "#{@output}/#{@output}-#{status}.txt"
+                                    save_output(status_file_path, url)
+                                end
                             end
+                        rescue URI::InvalidURIError => e
+                            puts "Invalid URI: #{url}. Skipping...".red
+                            next
                         end
-                    rescue URI::InvalidURIError => e
-                        puts "Invalid URI: #{url}. Skipping...".red
-                        next
                     end
                 end
             end
+        rescue Interrupt
+            puts "\nXplore terminated by user".green
+            exit 0
         end
     end
 end
