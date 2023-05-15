@@ -44,6 +44,10 @@ class Xplore
         when "large"
             @size = "large"
         end
+
+        if !output.nil?
+            create_out_dir(output)
+        end
     end
 
 
@@ -53,8 +57,8 @@ class Xplore
         response.code.to_i
     end
 
-    def save_output(output_file, content)
-        File.open(output_file, 'a') do |file|
+    def save_output(path, content)
+        File.open(path, 'a') do |file|
             file.puts content
         end
     end
@@ -70,8 +74,14 @@ class Xplore
         array.uniq
     end
 
+    def create_out_dir(name)
+        Dir.mkdir(name)
+    rescue Errno::EEXIST
+        nil
+    end        
+
     def process_output_files
-        Dir.glob("./*.txt") do |path|
+        Dir.glob("#{@output}/*.txt") do |path|
             lines = read_file(path)
             unique_lines = remove_duplicate(lines)
             File.open(path, "w") do |file|
@@ -100,8 +110,8 @@ class Xplore
                                     end
                             puts "#{url}".ljust(120) + "[#{status}]".colorize(color)
                             if !@output.nil?
-                                status_file = "#{@output}-#{status}.txt"
-                                save_output(status_file, url)
+                                status_file_path = "#{@output}/#{@output}-#{status}.txt"
+                                save_output(status_file_path, url)
                             end
                         end
                     rescue URI::InvalidURIError => e
