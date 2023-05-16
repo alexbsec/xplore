@@ -142,7 +142,7 @@ class Xplore
                         word.chomp!
                         begin
                             sleep(@delay)
-                            word.start_with?('/') ? word[1..-1] : word
+                            word = word.start_with?('/') ? word[1..-1] : word
                             url = "#{@url}#{word}"
                             status = get_status_code(url)
                             if status && @gcode.include?(status)
