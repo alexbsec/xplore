@@ -32,6 +32,9 @@ class Xplore
         },
         'nginx' => {
             'small' => 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/nginx.txt'
+        },
+        'routes' => {
+            'small' => 'https://wordlists-cdn.assetnote.io/data/automated/httparchive_apiroutes_2022_09_28.txt'
         }
     }
 
