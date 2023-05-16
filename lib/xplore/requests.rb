@@ -1,6 +1,8 @@
 require 'open-uri'
 require 'net/http'
 require 'colorize'
+require 'terminal-table'
+require 'socket'
 
 class Xplore
     attr_reader :words
@@ -13,13 +15,23 @@ class Xplore
             'small' => 'https://wordlists-cdn.assetnote.io/data/manual/asp_lowercase.txt',
         },
         'aspx' => {
-            'large' => 'https://wordlists-cdn.assetnote.io/data/manual/aspx_lowercase.txt'
+            'small' => 'https://wordlists-cdn.assetnote.io/data/manual/aspx_lowercase.txt'
         },
         'html' => {
-            'large' => 'https://wordlists-cdn.assetnote.io/data/manual/html.txt'
+            'small' => 'https://wordlists-cdn.assetnote.io/data/manual/html.txt'
         },
         'xml' => {
-            'large' => 'https://wordlists-cdn.assetnote.io/data/manual/xml_filenames.txt'
+            'small' => 'https://wordlists-cdn.assetnote.io/data/manual/xml_filenames.txt'
+        },
+        'general' => {
+            'small' => 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/combined_words.txt'
+        },
+        'apache' => {
+            'small' => 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/apache.txt',
+            'large' => 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/Apache.fuzz.txt'
+        },
+        'nginx' => {
+            'small' => 'https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/nginx.txt'
         }
     }
 
@@ -37,6 +49,14 @@ class Xplore
         @output = output
         @delay = miliseconds_to_seconds(delay)
 
+        if @gcode == 'all'
+            @gcode = [100, 101, 102, 103, 200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 300,
+            301, 302, 303, 304, 305, 306, 307, 308, 400, 401, 402, 403, 404, 405, 406,
+            407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 421, 422, 423,
+            424, 426, 428, 429, 431, 451, 500, 501, 502, 503, 504, 505, 506, 507, 508,
+            510, 511
+          ]
+        end
 
         case type.downcase
         when "php", "asp", "aspx", "html", "config", "ui_config", "general", "js", "routes"
@@ -97,6 +117,18 @@ class Xplore
         end
     end
 
+    def colorize_output(text)
+        color = case text
+        when /^2\d{2}$/ then :green
+        when /^3\d{2}$/ then :blue
+        when /^4\d{2}$/ then :red
+        when /^5\d{2}$/ then :yellow
+        else :white 
+        end
+        return color
+    end
+
+
     def request
         begin
             uri = URI.parse(WORDLISTS[@type][@size])
@@ -107,17 +139,19 @@ class Xplore
                         word.chomp!
                         begin
                             sleep(@delay)
+                            word.start_with?('/') ? word[1..-1] : word
                             url = "#{@url}#{word}"
                             status = get_status_code(url)
                             if status && @gcode.include?(status)
-                                color = case status.to_s
-                                        when /^2\d{2}$/ then :green
-                                        when /^3\d{2}$/ then :yellow
-                                        when /^4\d{2}$/ then :red
-                                        when /^5\d{2}$/ then :orange
-                                        else :white
-                                        end
-                                puts "#{url}".ljust(120) + "[#{status}]".colorize(color)
+                                color = colorize_output(status.to_s)
+                                table = Terminal::Table.new do |t|
+                                    t.style = {border_x: '', border_i: ''}
+                                    t.add_row [
+                                        url,
+                                        "[#{status}]".colorize(color)
+                                    ]
+                                end
+                                puts table
                                 if !@output.nil?
                                     status_file_path = "#{@output}/#{@output}-#{status}.txt"
                                     save_output(status_file_path, url)
@@ -125,6 +159,9 @@ class Xplore
                             end
                         rescue URI::InvalidURIError => e
                             puts "Invalid URI: #{url}. Skipping...".red
+                            next
+                        rescue SocketError => e
+                            puts "Failed to establish TCP connection. Skipping...".red
                             next
                         end
                     end
